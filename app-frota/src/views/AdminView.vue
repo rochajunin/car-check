@@ -51,11 +51,22 @@
 import { ref, onMounted } from 'vue';
 import MapaOSM from '../components/MapaOSM.vue';
 
+// Define a URL base da API dinamicamente
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const viagens = ref([]);
 const rotaSelecionada = ref(null);
 
 onMounted(async () => {
-  const res = await fetch('http://localhost:3000/api/admin/viagens');
-  viagens.value = await res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/viagens`);
+    if (res.ok) {
+      viagens.value = await res.json();
+    } else {
+      console.error('Erro ao buscar viagens:', res.statusText);
+    }
+  } catch (error) {
+    console.error('Erro de conexão com o servidor:', error);
+  }
 });
 </script>

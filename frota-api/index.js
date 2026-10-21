@@ -1,12 +1,17 @@
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://car-check-blush.vercel.app', // Substitua pela sua URL exata da Vercel
+    'http://localhost:5173'              // Ambiente de desenvolvimento local
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });

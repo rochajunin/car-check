@@ -60,7 +60,9 @@
 import { ref, reactive } from 'vue';
 import { db } from '../db.js';
 
-const API_URL = 'http://localhost:3000/api';
+// Define a URL da API apontando para VITE_API_URL ou padrão local
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = `${API_BASE}/api`;
 
 const placa = ref('');
 const kmInicial = ref('');
@@ -82,53 +84,67 @@ const itensChecklist = reactive({
 const fazerCheckin = async () => {
   if (!placa.value || !kmInicial.value) return alert('Preencha Placa e KM Inicial!');
 
-  const res = await fetch(`${API_URL}/checkin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      placa: placa.value,
-      motorista_id: 'mot_001',
-      km_inicial: kmInicial.value,
-      nivel_combustivel: combustivelSaida.value,
-      itens: itensChecklist
-    })
-  });
+  try {
+    const res = await fetch(`${API_URL}/checkin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        placa: placa.value,
+        motorista_id: 'mot_001',
+        km_inicial: kmInicial.value,
+        nivel_combustivel: combustivelSaida.value,
+        itens: itensChecklist
+      })
+    });
 
-  const data = await res.json();
-  if (res.ok) {
-    viagemId.value = data.viagem_id;
-    if (data.alerta) alert('ATENÇÃO: O sistema registrou um alerta de divergência de KM com o último turno!');
-    
-    // Inicia gravação do GPX local
-    await db.gpx_pontos.clear();
-    const cabecalhoGpx = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1"><trk><name>Rota_${placa.value}</name><trkseg>\n`;
-    await db.gpx_pontos.add({ texto_xml: cabecalhoGpx });
+    const data = await res.json();
+    if (res.ok) {
+      viagemId.value = data.viagem_id;
+      if (data.alerta) alert('ATENÇÃO: O sistema registrou um alerta de divergência de KM com o último turno!');
+      
+      // Inicia gravação do GPX local
+      await db.gpx_pontos.clear();
+      const cabecalhoGpx = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1"><trk><name>Rota_${placa.value}</name><trkseg>\n`;
+      await db.gpx_pontos.add({ texto_xml: cabecalhoGpx });
+    } else {
+      alert('Erro ao realizar check-in: ' + (data.message || 'Falha no servidor'));
+    }
+  } catch (error) {
+    console.error('Erro no check-in:', error);
+    alert('Erro de conexão com o servidor da API.');
   }
 };
 
 const fazerCheckout = async () => {
   if (!kmFinal.value) return alert('Informe a KM Final!');
 
-  // Gera arquivo GPX
-  const pontos = await db.gpx_pontos.toArray();
-  let xml = pontos.map(p => p.texto_xml).join('') + `  <trkpt lat="-2.9050" lon="-41.7770"><time>${new Date().toISOString()}</time></trkpt>\n</trkseg></trk></gpx>`;
-  
-  const file = new File([new Blob([xml], { type: 'application/gpx+xml' })], 'rota.gpx');
-  
-  const formData = new FormData();
-  formData.append('arquivo_gpx', file);
-  formData.append('viagem_id', viagemId.value);
-  formData.append('km_final', kmFinal.value);
-  formData.append('nivel_combustivel', combustivelChegada.value);
-  formData.append('itens', JSON.stringify(itensChecklist));
-  formData.append('avarias', JSON.stringify(novaAvaria.value ? [novaAvaria.value] : []));
+  try {
+    // Gera arquivo GPX
+    const pontos = await db.gpx_pontos.toArray();
+    let xml = pontos.map(p => p.texto_xml).join('') + `  <trkpt lat="-2.9050" lon="-41.7770"><time>${new Date().toISOString()}</time></trkpt>\n</trkseg></trk></gpx>`;
+    
+    const file = new File([new Blob([xml], { type: 'application/gpx+xml' })], 'rota.gpx');
+    
+    const formData = new FormData();
+    formData.append('arquivo_gpx', file);
+    formData.append('viagem_id', viagemId.value);
+    formData.append('km_final', kmFinal.value);
+    formData.append('nivel_combustivel', combustivelChegada.value);
+    formData.append('itens', JSON.stringify(itensChecklist));
+    formData.append('avarias', JSON.stringify(novaAvaria.value ? [novaAvaria.value] : []));
 
-  const res = await fetch(`${API_URL}/checkout`, { method: 'POST', body: formData });
-  
-  if (res.ok) {
-    alert('Devolução registrada com sucesso!');
-    viagemId.value = null;
-    await db.gpx_pontos.clear();
+    const res = await fetch(`${API_URL}/checkout`, { method: 'POST', body: formData });
+    
+    if (res.ok) {
+      alert('Devolução registrada com sucesso!');
+      viagemId.value = null;
+      await db.gpx_pontos.clear();
+    } else {
+      alert('Erro ao finalizar check-out.');
+    }
+  } catch (error) {
+    console.error('Erro no check-out:', error);
+    alert('Erro de conexão com o servidor da API.');
   }
 };
 </script>
