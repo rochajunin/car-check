@@ -7,9 +7,12 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 app.use(cors({
   origin: [
-    'https://car-check-blush.vercel.app', // Substitua pela sua URL exata da Vercel
-    'http://localhost:5173'              // Ambiente de desenvolvimento local
+    'https://car-check-app-frota-two.vercel.app', // Sua nova URL da Vercel
+    'http://localhost:5173',                       // Desenvolvimento local (Vite)
+    'http://localhost:3000'
   ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 app.use(express.json());
